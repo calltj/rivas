@@ -1,19 +1,22 @@
 const express = require("express");
 const { MongoClient } = require("mongodb");
 const axios = require("axios");
-
+const dotenv = require("dotenv");
+dotenv.config();
 const app = express();
 app.use(express.json());
 
 let rivasDb;
 
 // Identity service helper
-const identityAPI = "http://localhost:5000";
+const identityAPI = "https://aerospike.brivas.io/api/identity";
+
 
 // Helper: Check if email exists globally
 const emailExists = async (email) => {
   const response = await axios.get(`${identityAPI}/check`, {
     params: { email },
+    headers: { "x-app-name": "rivas" }
   });
   return response.data.exists;
 };
@@ -39,7 +42,7 @@ app.post("/signup", async (req, res) => {
     // Post user to the identity API's LMDB write endpoint
     try {
       await axios.post(
-        `${identityAPI}/identity`,
+        identityAPI,
         { user },
         { headers: { "x-app-name": "rivas" } }
       );
@@ -65,8 +68,8 @@ app.post("/login", async (req, res) => {
   const { email } = req.body;
   try {
     const response = await axios.post(
-      `${identityAPI}/auth`,
-      { email },
+      identityAPI, // no /auth
+      { user: { email } },
       { headers: { "x-app-name": "rivas" } }
     );
     res.json({ user: response.data.user });
@@ -79,7 +82,7 @@ app.post("/login", async (req, res) => {
 app.post("/profile", async (req, res) => {
   try {
     const response = await axios.post(
-      `${identityAPI}/identity`,
+      identityAPI,
       { user: req.body },
       { headers: { "x-app-name": "rivas" } }
     );
@@ -119,7 +122,7 @@ app.get("/stream/:movieId", (req, res) => {
 
 // Startup
 (async () => {
-  const client = new MongoClient("mongodb://localhost:27017");
+  const client = new MongoClient(process.env.MONGO_URI);
   await client.connect();
   rivasDb = client.db("rivas_db");
   app.listen(7000, () => console.log("Rivas running on http://localhost:7000"));
